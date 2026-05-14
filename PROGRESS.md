@@ -38,3 +38,8 @@ All updates and changes to the project are tracked here.
 | 2026-05-13 | Enabled universal card analytics for all cards in Discovery. | components/cards/PokemonCard.tsx | Completed |
 | 2026-05-13 | Integrated Tesseract.js for AI-powered card scanning (OCR). | lib/ocr.ts, components/scanner/ | Completed |
 | 2026-05-13 | Created dedicated 'Scanner' page for screenshot/photo identification. | app/scan/page.tsx, components/Navbar.tsx | Completed |
+| 2026-05-14 | Pivot to "Market Terminal": Removed Vault features in favor of pure market analytics. | app/card/, app/portfolio/ | Completed |
+| 2026-05-14 | Implemented AI Projections and "All Days" Price Interpolation. | lib/analytics.ts, app/card/[id]/page.tsx | Completed |
+| 2026-05-14 | Built Real-time Market Dashboard with Top Movers and Pulse metrics. | app/page.tsx | Completed |
+| 2026-05-14 | Fixed React key collisions and added robust data deduplication logic. | CardGrid.tsx, CardScanner.tsx | Completed |
+| 2026-05-14 | Starting Digital Expansion: Integrating TCGdex for TCG Pocket support. | lib/api.ts, app/page.tsx | In Progress |

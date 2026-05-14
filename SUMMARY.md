@@ -1,23 +1,29 @@
-# PokéHODL: Personal Portfolio Tracking System
+# PokéMarket: Professional TCG Terminal
 
 ## Project Overview
-PokéHODL is a focused personal tracking system for Pokémon TCG collectors. Its sole purpose is to provide users with a private, investment-grade dashboard to monitor the value of their collection and track purchase history.
+PokéMarket is an institutional-grade market terminal for Pokémon TCG assets. It provides real-time market discovery, advanced historical price interpolation, and AI-powered trend projections. The platform is designed for high-end collectors and market participants who require deep analytical insights.
 
 ## Key Features
-- **Personal Vault:** Securely track your collection in a private tracking system.
-- **ROI Monitoring:** Real-time profit/loss calculations based on market data.
-- **Historical Tracking:** Detailed logs of purchase prices, dates, and card conditions.
-- **Advanced Search:** Find and identify cards to add to your tracking system.
+- **Live Market Terminal:** Track top movers, gainers, and losers in real-time.
+- **AI Price Projections:** 30-day future estimation using linear regression models.
+- **"All Days" Price Estimation:** Seamless historical interpolation to fill data gaps.
+- **Market Pulse Analytics:** Advanced sentiment, volatility, and momentum metrics.
+- **AI Card Scanner:** Instantly identify assets from screenshots or physical photos.
+- **TCG Pocket Support:** Integrated dual-engine support for both physical TCG and digital-only Pocket series.
 
 ## Tech Stack
-- **Frontend:** Next.js (App Router), TypeScript, Tailwind CSS
-- **Styling:** Tailwind CSS, Shadcn/UI
-- **Charts:** Recharts
-- **Backend:** Supabase (Auth + Database)
-- **API:** Pokémon TCG API (pokemontcg.io)
+- **Frontend:** Next.js 15 (App Router), TypeScript, Tailwind CSS
+- **Analytics:** Custom Linear Regression & Interpolation Engines
+- **Charts:** Recharts (Optimized for financial data)
+- **Computer Vision:** Tesseract.js & Gemini Vision AI
+- **APIs:** 
+  - Pokémon TCG API (pokemontcg.io) - Physical/Live
+  - TCGdex API - Digital/Pocket
+  - Pokeprice API - Grading & History
 
 ## Phase Plan
 1. **Phase 1: Foundation** - Next.js setup, API integration, Search page. [COMPLETED]
-2. **Phase 2: The Vault** - Database setup, CRUD logic, UI aesthetics update. [COMPLETED]
-3. **Phase 3: The Dashboard** - ROI logic, charts, and individual "Stock" asset views. [IN PROGRESS]
-4. **Phase 4: Polished Pokédex** - UX enhancements, 3D card effects, sharing. [PENDING]
+2. **Phase 2: Market Pivot** - Transformation from personal vault to global market terminal. [COMPLETED]
+3. **Phase 3: Predictive Analytics** - Implementation of interpolation and regression models. [COMPLETED]
+4. **Phase 4: Digital Expansion** - Integrating TCG Pocket support and TCGdex engine. [IN PROGRESS]
+5. **Phase 5: Global Terminal v5** - Real-time supply/demand heatmaps and whale tracking. [PENDING]

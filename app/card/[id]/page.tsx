@@ -30,9 +30,13 @@ interface GradingData {
   psa9_price: number;
 }
 
+import { useSearchParams } from "next/navigation";
+
 export default function AssetDashboard({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const cardId = resolvedParams.id;
+  const searchParams = useSearchParams();
+  const series = (searchParams.get('series') as CardSeries) || 'standard';
   
   const [card, setCard] = useState<PokemonCard | null>(null);
   const [history, setHistory] = useState<{ date: string; price: number }[]>([]);
@@ -48,9 +52,9 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
         
         // 1. Fetch from multiple sources
         const [cardData, historyData, gradingData] = await Promise.all([
-          fetchCardById(cardId),
-          fetchHistoricalData(cardId),
-          fetchGradingInsights(cardId)
+          fetchCardById(cardId, series),
+          series === 'standard' ? fetchHistoricalData(cardId) : Promise.resolve(null),
+          series === 'standard' ? fetchGradingInsights(cardId) : Promise.resolve(null)
         ]);
 
         setCard(cardData);
@@ -59,8 +63,9 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
         if (historyData && historyData.prices) {
           rawHistory = historyData.prices;
         } else {
-          // Fallback trend
-          const currentMkt = cardData.tcgplayer?.prices?.holofoil?.market || cardData.tcgplayer?.prices?.normal?.market || 40;
+          // Fallback trend (Universal for both types if history is missing)
+          const currentMkt = cardData.tcgplayer?.prices?.normal?.market || 
+                             (series === 'pocket' ? 120 : 40);
           rawHistory = [
             { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), price: currentMkt * 0.9 },
             { date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(), price: currentMkt * 0.95 },
@@ -87,7 +92,7 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
     };
 
     loadData();
-  }, [cardId]);
+  }, [cardId, series]);
 
   if (isLoading) {
     return (

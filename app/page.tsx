@@ -129,7 +129,20 @@ export default function MarketDashboard() {
 
   const handleSeriesToggle = (newSeries: CardSeries) => {
     setSeries(newSeries);
-    setQuery(""); // Clear search when switching
+    setQuery("");
+    setRarity("all");
+    setType("all");
+    // The useEffect [series] will trigger performSearch("", newSeries, "all", "all")
+  };
+
+  const handleFilterChange = (value: string, filterType: "rarity" | "type") => {
+    if (filterType === "rarity") {
+      setRarity(value);
+      performSearch(query, series, value, type);
+    } else {
+      setType(value);
+      performSearch(query, series, rarity, value);
+    }
   };
 
   return (

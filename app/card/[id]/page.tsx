@@ -119,6 +119,21 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
   const predictedEnd = forecast[forecast.length - 1]?.price || currentPrice;
   const predictedGrowth = ((predictedEnd - currentPrice) / currentPrice) * 100;
 
+  // Pocket specific point calculation
+  const getPocketPoints = (rarity: string) => {
+    const rarityMap: Record<string, number> = {
+      "1-Diamond": 35,
+      "2-Diamond": 70,
+      "3-Diamond": 150,
+      "4-Diamond": 500,
+      "1-Star": 400,
+      "2-Star": 1250,
+      "3-Star": 1500,
+      "Crown": 2500,
+    };
+    return rarityMap[rarity] || 35;
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 font-sans">
       <div className="flex items-center justify-between mb-8">
@@ -170,7 +185,7 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
             </CardContent>
           </Card>
 
-          {grading && (
+          {series === 'standard' && grading && (
              <Card className="bg-slate-900 text-white shadow-xl rounded-[2rem] border-none overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-black uppercase tracking-[0.2em] opacity-80">Grading Alpha</CardTitle>
@@ -193,6 +208,35 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
                         <div className="text-3xl font-black text-white">{(grading.psa10_price / currentPrice).toFixed(1)}x</div>
                       </div>
                       <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase">Low Risk</div>
+                    </div>
+                  </div>
+                </CardContent>
+             </Card>
+          )}
+
+          {series === 'pocket' && (
+             <Card className="bg-indigo-900 text-white shadow-xl rounded-[2rem] border-none overflow-hidden">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xs font-black uppercase tracking-[0.2em] opacity-80">Digital Scarcity Engine</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-white/10 p-3 rounded-2xl">
+                      <div className="text-[10px] font-bold uppercase opacity-70 mb-1">Pack Point Cost</div>
+                      <div className="text-xl font-black">{getPocketPoints(card.rarity)} pts</div>
+                    </div>
+                    <div className="bg-white/10 p-3 rounded-2xl">
+                      <div className="text-[10px] font-bold uppercase opacity-70 mb-1">Acquisition</div>
+                      <div className="text-xl font-black">{(getPocketPoints(card.rarity) / 35).toFixed(1)}x</div>
+                    </div>
+                  </div>
+                  <div className="pt-4 border-t border-white/10">
+                    <div className="flex justify-between items-end">
+                      <div>
+                        <div className="text-[10px] font-bold uppercase opacity-70 mb-1">Market Position</div>
+                        <div className="text-3xl font-black text-white">{card.rarity.replace('-', ' ')}</div>
+                      </div>
+                      <div className="bg-indigo-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase">High Scarcity</div>
                     </div>
                   </div>
                 </CardContent>

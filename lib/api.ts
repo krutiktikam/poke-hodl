@@ -39,30 +39,21 @@ export const fetchCards = async (
  * TCGdex API Client for Pocket Cards
  */
 export const fetchPocketCards = async (
-  query?: string
+  query?: string,
+  rarity?: string
 ): Promise<PokemonCard[]> => {
   try {
-    // TCGdex uses a slightly different structure. 
-    // For Pocket, we specifically target the 'tcgp' series.
-    const url = query 
-      ? `${TCGDEX_BASE_URL}/cards?name=${encodeURIComponent(query)}&series=tcgp`
-      : `${TCGDEX_BASE_URL}/series/tcgp`;
+    let url = `${TCGDEX_BASE_URL}/cards?series=tcgp`;
+    
+    if (query) url += `&name=${encodeURIComponent(query)}`;
+    if (rarity && rarity !== 'all') url += `&rarity=${encodeURIComponent(rarity)}`;
 
     const response = await fetch(url);
     if (!response.ok) return [];
 
     const data = await response.json();
     
-    // If it's a series list, we need to fetch the cards for the sets
-    if (data.sets) {
-      const cards: any[] = [];
-      // Just fetch the first set for the dashboard demo
-      const firstSet = data.sets[0];
-      const setResponse = await fetch(`${TCGDEX_BASE_URL}/sets/${firstSet.id}`);
-      const setData = await setResponse.json();
-      return (setData.cards || []).map(mapTCGdexToPokemonCard);
-    }
-
+    // TCGdex returns a list of cards for series/cards queries
     return (data || []).map(mapTCGdexToPokemonCard);
   } catch (err) {
     console.error("TCGdex Fetch Error:", err);
@@ -71,9 +62,37 @@ export const fetchPocketCards = async (
 };
 
 /**
+ * Estimates a "Market Value" for Pocket cards based on their Pack Point crafting cost
+ * and simulated scarcity.
+ */
+export function calculatePocketMarketValue(rarity: string): number {
+  const rarityMap: Record<string, number> = {
+    "1-Diamond": 35,
+    "2-Diamond": 70,
+    "3-Diamond": 150,
+    "4-Diamond": 500,
+    "1-Star": 400,
+    "2-Star": 1250,
+    "3-Star": 1500,
+    "Crown": 2500,
+  };
+
+  // Convert points to a simulated USD value (e.g., $0.10 per point)
+  const basePoints = rarityMap[rarity] || 35;
+  const multiplier = 0.15; // Simulated market weight
+  
+  // Add a small random "Market Fluctuation" to make it look like a stock price
+  const fluctuation = 1 + (Math.random() * 0.1 - 0.05);
+  
+  return parseFloat((basePoints * multiplier * fluctuation).toFixed(2));
+}
+
+/**
  * Maps TCGdex card structure to our internal PokemonCard type
  */
 function mapTCGdexToPokemonCard(card: any): PokemonCard {
+  const estimatedPrice = calculatePocketMarketValue(card.rarity || "1-Diamond");
+  
   return {
     id: card.id,
     name: card.name,
@@ -92,18 +111,23 @@ function mapTCGdexToPokemonCard(card: any): PokemonCard {
     },
     number: card.localId || "",
     artist: "",
-    rarity: card.rarity || "Common",
+    rarity: card.rarity || "1-Diamond",
     legalities: { unlimited: "Legal" },
     images: {
       small: `${card.image}/low.webp`,
       large: `${card.image}/high.webp`,
     },
-    // Pocket cards don't have TCGPlayer prices, we'll simulate or leave empty
+    // For Pocket, we inject our estimated price into the tcgplayer object
     tcgplayer: {
       url: "",
       updatedAt: new Date().toISOString(),
       prices: {
-        normal: { low: 0, mid: 0, high: 0, market: 0 }
+        normal: { 
+          low: estimatedPrice * 0.8, 
+          mid: estimatedPrice, 
+          high: estimatedPrice * 1.2, 
+          market: estimatedPrice 
+        }
       }
     }
   };

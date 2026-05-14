@@ -41,7 +41,7 @@ export default function MarketDashboard() {
       setError(null);
 
       if (currentSeries === 'pocket') {
-        const pocketCards = await fetchPocketCards(searchTerm);
+        const pocketCards = await fetchPocketCards(searchTerm, currentRarity);
         setCards(pocketCards);
         setTotalCount(pocketCards.length);
         setPage(1);
@@ -226,8 +226,26 @@ export default function MarketDashboard() {
               </div>
               
               <div className="flex gap-2">
+                <Select value={rarity} onValueChange={(v) => handleFilterChange(v, "rarity")}>
+                  <SelectTrigger className="w-[140px] h-14 bg-white/5 border-none focus:ring-0 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl">
+                    <SelectValue placeholder="Rarity" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-2xl bg-slate-900 border-white/10 text-white">
+                    <SelectItem value="all">All Rarities</SelectItem>
+                    {series === 'standard' ? (
+                      ["Common", "Uncommon", "Rare", "Rare Holo", "Rare Ultra", "Rare Rainbow", "Rare Secret"].map(r => (
+                        <SelectItem key={r} value={r} className="rounded-xl font-bold">{r}</SelectItem>
+                      ))
+                    ) : (
+                      ["1-Diamond", "2-Diamond", "3-Diamond", "4-Diamond", "1-Star", "2-Star", "3-Star", "Crown"].map(r => (
+                        <SelectItem key={r} value={r} className="rounded-xl font-bold">{r.replace('-', ' ')}</SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+
                 {series === 'standard' && (
-                  <Select value={type} onValueChange={(v) => setType(v)}>
+                  <Select value={type} onValueChange={(v) => handleFilterChange(v, "type")}>
                     <SelectTrigger className="w-[120px] h-14 bg-white/5 border-none focus:ring-0 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl">
                       <SelectValue placeholder="Type" />
                     </SelectTrigger>

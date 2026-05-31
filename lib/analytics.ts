@@ -133,3 +133,41 @@ export function calculateFutureProjections(history: { date: string; price: numbe
 
   return result;
 }
+
+export interface SetDominanceData {
+  name: string;
+  value: number;
+  isCurrent: boolean;
+}
+
+/**
+ * Calculates how much a card "dominates" its set in terms of value.
+ */
+export function calculateSetDominance(currentCard: any, setCards: any[]): SetDominanceData[] {
+  if (!setCards || setCards.length === 0) return [];
+
+  const getPrice = (c: any) => 
+    c.tcgplayer?.prices?.holofoil?.market || 
+    c.tcgplayer?.prices?.normal?.market || 
+    c.tcgplayer?.prices?.reverseHolofoil?.market || 0;
+
+  // Take top 15 cards for the heatmap
+  const sorted = [...setCards]
+    .sort((a, b) => getPrice(b) - getPrice(a))
+    .slice(0, 15);
+
+  // Ensure current card is in the list
+  const isIncluded = sorted.some(c => c.id === currentCard.id);
+  if (!isIncluded) {
+    sorted.pop();
+    sorted.push(currentCard);
+  }
+
+  return sorted
+    .sort((a, b) => getPrice(b) - getPrice(a))
+    .map(c => ({
+      name: c.name,
+      value: getPrice(c),
+      isCurrent: c.id === currentCard.id
+    }));
+}

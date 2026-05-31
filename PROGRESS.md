@@ -43,4 +43,19 @@ All updates and changes to the project are tracked here.
 | 2026-05-14 | Built Real-time Market Dashboard with Top Movers and Pulse metrics. | app/page.tsx | Completed |
 | 2026-05-14 | Fixed React key collisions and added robust data deduplication logic. | CardGrid.tsx, CardScanner.tsx | Completed |
 | 2026-05-14 | Starting Digital Expansion: Integrating TCGdex for TCG Pocket support. | lib/api.ts, app/page.tsx | Completed |
-| 2026-05-14 | Whitelisted TCGdex image hostname to resolve Pocket asset loading error. | next.config.ts | Completed |
+| 2026-05-14 | Fixed TCG Pocket data fetching by using /sets endpoint for full card details and corrected routing in PokemonCard. | lib/api.ts, PokemonCard.tsx | Completed |
+| 2026-05-22 | Implemented Google OAuth (Sign in with Google) for direct login. | app/auth/page.tsx | Completed |
+| 2026-05-22 | Optimized AI Scanner for Gemini free tier quota by prioritizing gemini-1.5-flash. | app/api/scan/route.ts | Completed |
+| 2026-05-22 | Enhanced AI Scanner with Standard/Pocket context selection and optimized vision prompts. | CardScanner.tsx, api/scan/route.ts | Completed |
+| 2026-05-22 | Implemented full Portfolio/Profile system with Authentication and collection analytics. | app/auth/, app/portfolio/, Navbar.tsx | Completed |
+| 2026-05-22 | Resolved "not getting data" issue for Pocket option by refactoring API calls and navigation. | lib/api.ts, PokemonCard.tsx | Completed |
+
+## Future Improvements & Backlog
+
+- [ ] **Real Market Movers:** Replace simulated dashboard data with live performance metrics from recent sets.
+- [ ] **"The Vault" Watchlist:** Implement persistence (LocalStorage/Supabase) to allow users to track specific assets.
+- [ ] **Financial-grade Charting:** Upgrade Recharts implementation to Area or Candlestick charts with professional gradients.
+- [ ] **Deterministic Pocket Valuation:** Shift from random price fluctuations to a stable, ID-based simulated market for Pocket cards.
+- [ ] **Scan History:** Add a recent scans gallery to the identification page for quick navigation.
+- [ ] **Market Pulse Heatmap:** Implement a Treemap visualization to show value distribution across different TCG sets.
+

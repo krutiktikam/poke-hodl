@@ -24,7 +24,6 @@ export function PokemonCard({ card }: PokemonCardProps) {
               src={card.images.small}
               alt={card.name}
               fill
-              priority
               className="object-contain p-4 group-hover:scale-110 transition-transform duration-500 ease-out"
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />

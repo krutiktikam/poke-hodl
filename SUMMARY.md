@@ -8,7 +8,8 @@ PokéMarket is an institutional-grade market terminal for Pokémon TCG assets. I
 - **AI Price Projections:** 30-day future estimation using linear regression models.
 - **"All Days" Price Estimation:** Seamless historical interpolation to fill data gaps.
 - **Market Pulse Analytics:** Advanced sentiment, volatility, and momentum metrics.
-- **AI Card Scanner:** Instantly identify assets from screenshots or physical photos.
+- **Enhanced AI Scanner:** Instantly identify assets from screenshots or physical photos with dedicated modes for Standard and Pocket cards.
+- **Personal Vault (Portfolio):** Create a secure profile to track your collection, view ROI, and analyze allocation distribution. Supports Google OAuth for instant login.
 - **TCG Pocket Support:** Integrated dual-engine support for both physical TCG and digital-only Pocket series.
 
 ## Tech Stack

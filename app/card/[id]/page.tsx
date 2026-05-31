@@ -18,32 +18,41 @@ import {
   Activity,
   Zap,
   LineChart,
-  BarChart
+  BarChart,
+  Plus
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { fetchCardById, fetchHistoricalData, fetchGradingInsights } from "@/lib/api";
+import { fetchCardById, fetchHistoricalData, fetchGradingInsights, fetchCardsBySet } from "@/lib/api";
 import { PokemonCard } from "@/types/pokemon";
-import { calculateMarketMetrics, MarketMetrics, interpolateDailyData, calculateFutureProjections } from "@/lib/analytics";
+import { 
+  calculateMarketMetrics, 
+  MarketMetrics, 
+  interpolateDailyData, 
+  calculateFutureProjections,
+  calculateSetDominance,
+  SetDominanceData
+} from "@/lib/analytics";
+import { AddToPortfolioModal } from "@/components/cards/AddToPortfolioModal";
+import { Button } from "@/components/ui/button";
+import { SetDominanceHeatmap } from "@/components/charts/SetDominanceHeatmap";
 
 interface GradingData {
   psa10_price: number;
   psa9_price: number;
 }
 
-import { useSearchParams } from "next/navigation";
-
 export default function AssetDashboard({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
   const cardId = resolvedParams.id;
-  const searchParams = useSearchParams();
-  const series = (searchParams.get('series') as CardSeries) || 'standard';
   
   const [card, setCard] = useState<PokemonCard | null>(null);
   const [history, setHistory] = useState<{ date: string; price: number }[]>([]);
   const [forecast, setForecast] = useState<{ date: string; price: number; isPrediction: boolean }[]>([]);
   const [grading, setGrading] = useState<GradingData | null>(null);
   const [metrics, setMetrics] = useState<MarketMetrics | null>(null);
+  const [setDominance, setSetDominance] = useState<SetDominanceData[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
@@ -52,20 +61,23 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
         
         // 1. Fetch from multiple sources
         const [cardData, historyData, gradingData] = await Promise.all([
-          fetchCardById(cardId, series),
-          series === 'standard' ? fetchHistoricalData(cardId) : Promise.resolve(null),
-          series === 'standard' ? fetchGradingInsights(cardId) : Promise.resolve(null)
+          fetchCardById(cardId),
+          fetchHistoricalData(cardId),
+          fetchGradingInsights(cardId)
         ]);
 
         setCard(cardData);
         
+        // 2. Fetch set cards for dominance analysis
+        const setCards = await fetchCardsBySet(cardData.set.id);
+        setSetDominance(calculateSetDominance(cardData, setCards));
+
         let rawHistory = [];
         if (historyData && historyData.prices) {
           rawHistory = historyData.prices;
         } else {
-          // Fallback trend (Universal for both types if history is missing)
-          const currentMkt = cardData.tcgplayer?.prices?.normal?.market || 
-                             (series === 'pocket' ? 120 : 40);
+          // Fallback trend (Universal if history is missing)
+          const currentMkt = cardData.tcgplayer?.prices?.normal?.market || 40;
           rawHistory = [
             { date: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(), price: currentMkt * 0.9 },
             { date: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(), price: currentMkt * 0.95 },
@@ -92,7 +104,7 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
     };
 
     loadData();
-  }, [cardId, series]);
+  }, [cardId]);
 
   if (isLoading) {
     return (
@@ -108,34 +120,23 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
                        card.tcgplayer?.prices?.normal?.market || 
                        0;
 
-  // Combine history and forecast for a unified view if needed, 
-  // but for the main chart we'll just use history for now or a dual-line approach
   const lastHistoryPoint = history[history.length - 1];
   const firstHistoryPoint = history[0];
-  const totalChange = currentPrice - firstHistoryPoint.price;
-  const totalChangePercent = (totalChange / firstHistoryPoint.price) * 100;
+  const totalChange = currentPrice - (firstHistoryPoint?.price || 0);
+  const totalChangePercent = firstHistoryPoint?.price ? (totalChange / firstHistoryPoint.price) * 100 : 0;
   const isPositive = totalChange >= 0;
 
   const predictedEnd = forecast[forecast.length - 1]?.price || currentPrice;
   const predictedGrowth = ((predictedEnd - currentPrice) / currentPrice) * 100;
 
-  // Pocket specific point calculation
-  const getPocketPoints = (rarity: string) => {
-    const rarityMap: Record<string, number> = {
-      "1-Diamond": 35,
-      "2-Diamond": 70,
-      "3-Diamond": 150,
-      "4-Diamond": 500,
-      "1-Star": 400,
-      "2-Star": 1250,
-      "3-Star": 1500,
-      "Crown": 2500,
-    };
-    return rarityMap[rarity] || 35;
-  };
-
   return (
     <div className="container mx-auto px-4 py-8 font-sans">
+      <AddToPortfolioModal 
+        card={card} 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+      />
+      
       <div className="flex items-center justify-between mb-8">
         <Link 
           href="/" 
@@ -144,6 +145,13 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
           <ArrowLeft className="h-4 w-4" />
           Back to Market
         </Link>
+        <Button 
+          onClick={() => setIsModalOpen(true)}
+          className="bg-red-600 hover:bg-red-700 text-white rounded-2xl px-8 h-12 font-black shadow-xl shadow-red-100 transition-all active:scale-95 flex items-center gap-2"
+        >
+          <Plus className="h-5 w-5" />
+          Add to Vault
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
@@ -154,6 +162,7 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
               src={card.images.large} 
               alt={card.name} 
               fill 
+              priority
               className="object-contain p-6" 
               sizes="(max-width: 768px) 100vw, 384px"
             />
@@ -185,7 +194,7 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
             </CardContent>
           </Card>
 
-          {series === 'standard' && grading && (
+          {grading && (
              <Card className="bg-slate-900 text-white shadow-xl rounded-[2rem] border-none overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-black uppercase tracking-[0.2em] opacity-80">Grading Alpha</CardTitle>
@@ -208,35 +217,6 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
                         <div className="text-3xl font-black text-white">{(grading.psa10_price / currentPrice).toFixed(1)}x</div>
                       </div>
                       <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase">Low Risk</div>
-                    </div>
-                  </div>
-                </CardContent>
-             </Card>
-          )}
-
-          {series === 'pocket' && (
-             <Card className="bg-indigo-900 text-white shadow-xl rounded-[2rem] border-none overflow-hidden">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-xs font-black uppercase tracking-[0.2em] opacity-80">Digital Scarcity Engine</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-6 pt-2">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white/10 p-3 rounded-2xl">
-                      <div className="text-[10px] font-bold uppercase opacity-70 mb-1">Pack Point Cost</div>
-                      <div className="text-xl font-black">{getPocketPoints(card.rarity)} pts</div>
-                    </div>
-                    <div className="bg-white/10 p-3 rounded-2xl">
-                      <div className="text-[10px] font-bold uppercase opacity-70 mb-1">Acquisition</div>
-                      <div className="text-xl font-black">{(getPocketPoints(card.rarity) / 35).toFixed(1)}x</div>
-                    </div>
-                  </div>
-                  <div className="pt-4 border-t border-white/10">
-                    <div className="flex justify-between items-end">
-                      <div>
-                        <div className="text-[10px] font-bold uppercase opacity-70 mb-1">Market Position</div>
-                        <div className="text-3xl font-black text-white">{card.rarity.replace('-', ' ')}</div>
-                      </div>
-                      <div className="bg-indigo-500 text-white px-3 py-1 rounded-full text-[10px] font-black uppercase">High Scarcity</div>
                     </div>
                   </div>
                 </CardContent>
@@ -361,6 +341,25 @@ export default function AssetDashboard({ params }: { params: Promise<{ id: strin
               </CardContent>
             </Card>
           </div>
+
+          <Card className="border-slate-100 bg-white shadow-2xl shadow-slate-200/50 p-10 rounded-[3rem]">
+            <div className="flex items-center justify-between mb-10">
+              <div>
+                <h2 className="text-2xl font-black text-slate-900 tracking-tight">Set Dominance Heatmap</h2>
+                <p className="text-slate-400 text-sm font-medium mt-1 uppercase tracking-wider">Market concentration within {card.set.name}</p>
+              </div>
+              <div className="flex gap-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 text-[10px] font-black text-slate-500 uppercase tracking-widest border border-slate-100">
+                  <BarChart className="h-3 w-3 text-red-500" />
+                  Top 15 Assets
+                </div>
+              </div>
+            </div>
+            <SetDominanceHeatmap data={setDominance} />
+            <p className="text-[10px] text-slate-400 font-bold mt-6 leading-tight uppercase tracking-tighter">
+              Red highlight indicates current asset position. Box size represents relative market value compared to other top-tier cards in the set.
+            </p>
+          </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Card className="border-slate-100 bg-white shadow-2xl shadow-slate-200/50 p-10 rounded-[3rem] border-l-8 border-l-emerald-500">

@@ -2,11 +2,11 @@
 
 import { useState, useRef } from "react";
 import { createWorker } from "tesseract.js";
-import { Camera, Upload, Loader2, Search, CheckCircle2, XCircle } from "lucide-react";
+import { Camera, Upload, Loader2, Search, CheckCircle2, XCircle, Globe, Smartphone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { parseOCRText, ScannedCardInfo } from "@/lib/ocr";
-import { fetchCards } from "@/lib/api";
+import { fetchCards, fetchPocketCards, CardSeries } from "@/lib/api";
 import { PokemonCard } from "@/types/pokemon";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ interface CardScannerProps {
 }
 
 export function CardScanner({ onCardFound }: CardScannerProps) {
+  const [series, setSeries] = useState<CardSeries>("standard");
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [scannedInfo, setScannedInfo] = useState<ScannedCardInfo | null>(null);
@@ -35,7 +36,7 @@ export function CardScanner({ onCardFound }: CardScannerProps) {
       const aiResponse = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: imageSrc }),
+        body: JSON.stringify({ image: imageSrc, series }),
       });
 
       if (!aiResponse.ok) {
@@ -56,48 +57,46 @@ export function CardScanner({ onCardFound }: CardScannerProps) {
       setScannedInfo(parsedInfo);
 
       if (parsedInfo.name || parsedInfo.number || info.attack || info.setCode) {
-        // Build a query for the Pokémon TCG API
-        let queryParts = [];
+        let results: PokemonCard[] = [];
 
-        // 1. If we have a setCode (PTCGL code like 'SVI', 'MEW'), it's extremely high precision
-        if (info.setCode) {
-          queryParts.push(`set.ptcgoCode:"${info.setCode}"`);
-        }
+        if (series === 'pocket') {
+          // Pocket Identification Logic
+          results = await fetchPocketCards(parsedInfo.name || info.attack || "");
+          // If we have a number, filter by it locally since fetchPocketCards doesn't support number query yet
+          if (parsedInfo.number && results.length > 0) {
+            results = results.filter(c => c.number === parsedInfo.number);
+          }
+        } else {
+          // Standard Identification Logic
+          let queryParts = [];
+          if (info.setCode) queryParts.push(`set.ptcgoCode:"${info.setCode}"`);
+          if (parsedInfo.name) {
+            let searchName = parsedInfo.name
+              .replace(/^MEGA\s+/i, 'M ')
+              .replace(/\s+EX$/i, '-EX')
+              .replace(/\s+ex$/i, ' ex');
+            queryParts.push(`name:"*${searchName}*"`);
+          }
+          if (parsedInfo.number) queryParts.push(`number:"${parsedInfo.number}"`);
 
-        if (parsedInfo.name) {
-          // Normalize name for API matching
-          let searchName = parsedInfo.name
-            .replace(/^MEGA\s+/i, 'M ')
-            .replace(/\s+EX$/i, '-EX')
-            .replace(/\s+ex$/i, ' ex');
+          let query = queryParts.join(' ');
+          console.log("TCG API Query:", query);
+
+          let response = await fetchCards(query.trim());
           
-          queryParts.push(`name:"*${searchName}*"`);
-        }
-        
-        if (parsedInfo.number) {
-          queryParts.push(`number:"${parsedInfo.number}"`);
-        }
-
-        let query = queryParts.join(' ');
-        console.log("TCG API Query (with PTCGL code):", query);
-
-        let response = await fetchCards(query.trim());
-        
-        // Fallback 1: If name/number fails, try name + attack
-        if (response.data.length === 0 && parsedInfo.name && info.attack) {
-          console.log("Fallback: Searching by Name + Attack");
-          const fallbackQuery = `name:"*${parsedInfo.name.split(' ').pop()}*" attacks.name:"*${info.attack}*"`;
-          response = await fetchCards(fallbackQuery);
-        }
-
-        // Fallback 2: If still fails, try just the attack name (very high confidence)
-        if (response.data.length === 0 && info.attack) {
-          console.log("Fallback: Searching by Attack Name only");
-          response = await fetchCards(`attacks.name:"*${info.attack}*"`);
+          // Fallbacks for Standard
+          if (response.data.length === 0 && parsedInfo.name && info.attack) {
+            const fallbackQuery = `name:"*${parsedInfo.name.split(' ').pop()}*" attacks.name:"*${info.attack}*"`;
+            response = await fetchCards(fallbackQuery);
+          }
+          if (response.data.length === 0 && info.attack) {
+            response = await fetchCards(`attacks.name:"*${info.attack}*"`);
+          }
+          results = response.data;
         }
         
         const uniqueMap = new Map();
-        response.data.forEach(card => {
+        results.forEach(card => {
           if (!uniqueMap.has(card.id)) {
             uniqueMap.set(card.id, card);
           }
@@ -129,6 +128,26 @@ export function CardScanner({ onCardFound }: CardScannerProps) {
 
   return (
     <div className="space-y-8">
+      {/* Series Selection */}
+      <div className="flex justify-center mb-8">
+        <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm flex gap-1">
+          <button 
+            onClick={() => setSeries('standard')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${series === 'standard' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            <Globe className="h-4 w-4" />
+            Standard Cards
+          </button>
+          <button 
+            onClick={() => setSeries('pocket')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${series === 'pocket' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            <Smartphone className="h-4 w-4" />
+            Pocket Assets
+          </button>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Upload Section */}
         <Card className="border-slate-100 shadow-sm bg-white rounded-3xl overflow-hidden border-2 border-dashed">

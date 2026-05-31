@@ -18,8 +18,8 @@ export function MiniSparkline({ data, color = "#dc2626" }: MiniSparklineProps) {
   if (!isMounted) return <div className="h-10 w-24 bg-slate-50 rounded" />;
 
   return (
-    <div className="h-10 w-24">
-      <ResponsiveContainer width="100%" height="100%">
+    <div className="relative h-10 w-24">
+      <ResponsiveContainer width="100%" height="100%" debounce={100}>
         <LineChart data={data}>
           <YAxis hide domain={['dataMin - 5', 'dataMax + 5']} />
           <Line

@@ -1,10 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { TrendingUp, Search, Camera, Menu } from "lucide-react";
+import { TrendingUp, Search, Camera, Menu, Wallet, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export function Navbar() {
+  const [user, setUser] = useState<any>(null);
+  const router = useRouter();
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    router.push("/");
+  };
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white/80 backdrop-blur-xl">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -24,14 +47,35 @@ export function Navbar() {
             <Camera className="h-4 w-4" />
             AI Scanner
           </Link>
+          <Link href="/portfolio" className="text-sm font-bold text-slate-500 hover:text-red-600 transition-colors flex items-center gap-2 uppercase tracking-widest">
+            <Wallet className="h-4 w-4" />
+            Vault
+          </Link>
         </div>
 
         <div className="flex items-center gap-4">
-          <Link href="/scan">
-            <Button className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 h-10 font-bold shadow-lg shadow-red-100 transition-all active:scale-95">
-              Get Started
-            </Button>
-          </Link>
+          {user ? (
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Verified Pro</span>
+                <span className="text-xs font-bold text-slate-900">{user.email?.split('@')[0]}</span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleSignOut}
+                className="rounded-xl hover:bg-red-50 hover:text-red-600 text-slate-400"
+              >
+                <LogOut className="h-5 w-5" />
+              </Button>
+            </div>
+          ) : (
+            <Link href="/auth">
+              <Button className="bg-red-600 hover:bg-red-700 text-white rounded-xl px-6 h-10 font-bold shadow-lg shadow-red-100 transition-all active:scale-95">
+                Sign In
+              </Button>
+            </Link>
+          )}
           <Button variant="ghost" size="icon" className="md:hidden">
             <Menu className="h-6 w-6 text-slate-600" />
           </Button>

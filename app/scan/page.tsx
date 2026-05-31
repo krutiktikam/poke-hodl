@@ -13,7 +13,8 @@ export default function ScanPage() {
   const router = useRouter();
 
   const handleCardFound = (card: PokemonCard) => {
-    router.push(`/card/${card.id}`);
+    const isPocket = card.set?.series === "TCG Pocket";
+    router.push(`/card/${card.id}${isPocket ? '?series=pocket' : ''}`);
   };
 
   return (
@@ -38,7 +39,7 @@ export default function ScanPage() {
             </div>
             <div className="text-left">
               <div className="text-xs font-black uppercase tracking-wider text-slate-400">Model</div>
-              <div className="text-sm font-bold text-slate-900">Gemini 2.0 Flash</div>
+              <div className="text-sm font-bold text-slate-900">Gemini 1.5 Flash</div>
             </div>
           </div>
           <div className="bg-slate-50 p-4 rounded-2xl flex items-center gap-3 border border-slate-100">

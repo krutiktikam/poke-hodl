@@ -25,7 +25,7 @@ export function PortfolioDistribution({ data }: PortfolioDistributionProps) {
   if (!isMounted) return <div className="h-[250px] w-full bg-slate-50 animate-pulse rounded-3xl" />;
 
   return (
-    <div className="h-[250px] w-full">
+    <div className="relative w-full h-[300px]">
       <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
         <PieChart>
           <Pie
@@ -50,7 +50,7 @@ export function PortfolioDistribution({ data }: PortfolioDistributionProps) {
               fontSize: '12px',
               fontWeight: 'bold'
             }}
-            formatter={(value: number) => `$${value.toFixed(2)}`}
+            formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Value']}
           />
         </PieChart>
       </ResponsiveContainer>

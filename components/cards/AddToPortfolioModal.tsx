@@ -71,8 +71,9 @@ export function AddToPortfolioModal({ card, isOpen, onClose }: AddToPortfolioMod
       
       toast.success(`${card.name} added to your vault!`);
       onClose();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to add card to portfolio.");
+    } catch (error) {
+      const err = error as Error;
+      toast.error(err.message || "Failed to add card to portfolio.");
       console.error(error);
     } finally {
       setIsSubmitting(false);

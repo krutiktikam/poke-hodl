@@ -50,21 +50,19 @@ export async function POST(req: NextRequest) {
       Do not include any markdown formatting or extra text.
     `;
 
-    // Prioritize gemini-1.5-flash as it has the most generous free tier quota
+    // Prioritize gemini-2.0-flash (GA) and gemini-1.5-flash for speed and reliability
     const modelsToTry = [
+      "gemini-2.0-flash",
       "gemini-1.5-flash",
-      "gemini-2.0-flash-exp",
-      "gemini-1.5-pro"
+      "gemini-1.5-pro",
+      "gemini-2.0-flash-exp"
     ];
-    let lastError = null;
+    let lastError: any = null;
 
     for (const modelName of modelsToTry) {
       try {
-        console.log(`Attempting scan with model: ${modelName} (v1)...`);
-        const model = genAI.getGenerativeModel(
-          { model: modelName },
-          { apiVersion: "v1" }
-        );
+        console.log(`Attempting scan with model: ${modelName}...`);
+        const model = genAI.getGenerativeModel({ model: modelName });
         
         const result = await model.generateContent([
           prompt,
@@ -83,10 +81,16 @@ export async function POST(req: NextRequest) {
         text = text.replace(/```json|```/g, "").trim();
         const cardData = JSON.parse(text);
         return NextResponse.json(cardData);
-      } catch (err: any) {
-        console.error(`Model ${modelName} failed:`, err.message);
-        lastError = err;
-        if (err.message.includes("404") || err.message.includes("not supported") || err.message.includes("429")) {
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        console.error(`Model ${modelName} failed:`, errorMsg);
+        
+        // Prioritize rate limit (429) errors so the user gets a helpful quota warning rather than 404 not found
+        if (!lastError || (err as any)?.status === 429 || errorMsg.includes("429")) {
+          lastError = err;
+        }
+
+        if (errorMsg.includes("404") || errorMsg.includes("not supported") || errorMsg.includes("429")) {
           continue;
         } else {
           throw err;
@@ -95,8 +99,13 @@ export async function POST(req: NextRequest) {
     }
 
     throw lastError || new Error("All vision models failed to identify the card.");
-  } catch (error: any) {
+  } catch (error) {
     console.error("Scan API Error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    const errorMsg = error instanceof Error ? error.message : "Unknown error";
+    const isRateLimit = errorMsg.includes("429") || errorMsg.includes("quota");
+    return NextResponse.json(
+      { error: errorMsg, isRateLimit }, 
+      { status: isRateLimit ? 429 : 500 }
+    );
   }
 }

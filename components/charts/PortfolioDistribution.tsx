@@ -19,6 +19,7 @@ export function PortfolioDistribution({ data }: PortfolioDistributionProps) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
   }, []);
 
@@ -50,7 +51,7 @@ export function PortfolioDistribution({ data }: PortfolioDistributionProps) {
               fontSize: '12px',
               fontWeight: 'bold'
             }}
-            formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Value']}
+            formatter={(value) => [`$${Number(value || 0).toFixed(2)}`, 'Value']}
           />
         </PieChart>
       </ResponsiveContainer>

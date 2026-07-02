@@ -1,12 +1,10 @@
 "use client";
-
 import { useState, useRef } from "react";
-import { createWorker } from "tesseract.js";
-import { Camera, Upload, Loader2, Search, CheckCircle2, XCircle, Globe, Smartphone } from "lucide-react";
+import { Camera, Upload, Loader2, Search, CheckCircle2, XCircle, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { parseOCRText, ScannedCardInfo } from "@/lib/ocr";
-import { fetchCards, fetchPocketCards, CardSeries } from "@/lib/api";
+import { ScannedCardInfo } from "@/lib/ocr";
+import { fetchCards } from "@/lib/api";
 import { PokemonCard } from "@/types/pokemon";
 import Image from "next/image";
 import { toast } from "sonner";
@@ -16,20 +14,60 @@ interface CardScannerProps {
 }
 
 export function CardScanner({ onCardFound }: CardScannerProps) {
-  const [series, setSeries] = useState<CardSeries>("standard");
+  const series = "standard";
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [scannedInfo, setScannedInfo] = useState<ScannedCardInfo | null>(null);
   const [matchedCards, setMatchedCards] = useState<PokemonCard[]>([]);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isMockMode, setIsMockMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const processImage = async (imageSrc: string) => {
+    setImagePreview(imageSrc);
+
+    if (isMockMode) {
+      setIsProcessing(true);
+      setProgress(20);
+      setScannedInfo(null);
+      setMatchedCards([]);
+      
+      await new Promise(r => setTimeout(r, 400));
+      setProgress(60);
+      await new Promise(r => setTimeout(r, 400));
+      setProgress(100);
+
+      const popular = ["Charizard", "Pikachu", "Mewtwo", "Lugia", "Rayquaza", "Umbreon", "Gengar", "Espeon", "Suicune"];
+      const randomName = popular[Math.floor(Math.random() * popular.length)];
+      
+      try {
+        const response = await fetchCards(`name:"*${randomName}*"`);
+        if (response.data.length > 0) {
+          const card = response.data[Math.floor(Math.random() * Math.min(6, response.data.length))];
+          
+          setScannedInfo({
+            name: card.name,
+            number: card.number,
+            total: card.set.printedTotal?.toString() || "",
+            fullId: `${card.number}/${card.set.printedTotal || ""}`
+          });
+          setMatchedCards([card]);
+          toast.success(`Simulated scan complete: Found ${card.name}!`);
+        } else {
+          toast.error("Failed to generate mock card.");
+        }
+      } catch (err) {
+        toast.error("Error generating mock card.");
+      } finally {
+        setIsProcessing(false);
+      }
+      return;
+    }
+
     setIsProcessing(true);
     setProgress(0);
     setScannedInfo(null);
     setMatchedCards([]);
-    setImagePreview(imageSrc);
 
     try {
       // 1. Send image to our Gemini Vision API route
@@ -41,6 +79,10 @@ export function CardScanner({ onCardFound }: CardScannerProps) {
 
       if (!aiResponse.ok) {
         const errorData = await aiResponse.json();
+        if (aiResponse.status === 429 || errorData.isRateLimit) {
+          toast.error("Gemini API Rate Limit Exceeded. Please wait 30 seconds and try again.");
+          throw new Error("Rate limit exceeded. Please retry in 30s.");
+        }
         throw new Error(errorData.error || "Failed to scan image with AI");
       }
       
@@ -59,41 +101,32 @@ export function CardScanner({ onCardFound }: CardScannerProps) {
       if (parsedInfo.name || parsedInfo.number || info.attack || info.setCode) {
         let results: PokemonCard[] = [];
 
-        if (series === 'pocket') {
-          // Pocket Identification Logic
-          results = await fetchPocketCards(parsedInfo.name || info.attack || "");
-          // If we have a number, filter by it locally since fetchPocketCards doesn't support number query yet
-          if (parsedInfo.number && results.length > 0) {
-            results = results.filter(c => c.number === parsedInfo.number);
-          }
-        } else {
-          // Standard Identification Logic
-          let queryParts = [];
-          if (info.setCode) queryParts.push(`set.ptcgoCode:"${info.setCode}"`);
-          if (parsedInfo.name) {
-            let searchName = parsedInfo.name
-              .replace(/^MEGA\s+/i, 'M ')
-              .replace(/\s+EX$/i, '-EX')
-              .replace(/\s+ex$/i, ' ex');
-            queryParts.push(`name:"*${searchName}*"`);
-          }
-          if (parsedInfo.number) queryParts.push(`number:"${parsedInfo.number}"`);
-
-          let query = queryParts.join(' ');
-          console.log("TCG API Query:", query);
-
-          let response = await fetchCards(query.trim());
-          
-          // Fallbacks for Standard
-          if (response.data.length === 0 && parsedInfo.name && info.attack) {
-            const fallbackQuery = `name:"*${parsedInfo.name.split(' ').pop()}*" attacks.name:"*${info.attack}*"`;
-            response = await fetchCards(fallbackQuery);
-          }
-          if (response.data.length === 0 && info.attack) {
-            response = await fetchCards(`attacks.name:"*${info.attack}*"`);
-          }
-          results = response.data;
+        // Standard Identification Logic
+        const queryParts = [];
+        if (info.setCode) queryParts.push(`set.ptcgoCode:"${info.setCode}"`);
+        if (parsedInfo.name) {
+          const searchName = parsedInfo.name
+            .replace(/^MEGA\s+/i, 'M ')
+            .replace(/\s+EX$/i, '-EX')
+            .replace(/\s+ex$/i, ' ex');
+          queryParts.push(`name:"*${searchName}*"`);
         }
+        if (parsedInfo.number) queryParts.push(`number:"${parsedInfo.number}"`);
+
+        const query = queryParts.join(' ');
+        console.log("TCG API Query:", query);
+
+        let response = await fetchCards(query.trim());
+        
+        // Fallbacks for Standard
+        if (response.data.length === 0 && parsedInfo.name && info.attack) {
+          const fallbackQuery = `name:"*${parsedInfo.name.split(' ').pop()}*" attacks.name:"*${info.attack}*"`;
+          response = await fetchCards(fallbackQuery);
+        }
+        if (response.data.length === 0 && info.attack) {
+          response = await fetchCards(`attacks.name:"*${info.attack}*"`);
+        }
+        results = response.data;
         
         const uniqueMap = new Map();
         results.forEach(card => {
@@ -107,7 +140,10 @@ export function CardScanner({ onCardFound }: CardScannerProps) {
       }
     } catch (error) {
       console.error("Vision Error:", error);
-      toast.error("Failed to process image with Vision AI.");
+      const errMsg = error instanceof Error ? error.message : "Failed to process image with Vision AI.";
+      if (!errMsg.includes("Rate limit")) {
+        toast.error(errMsg);
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -128,26 +164,6 @@ export function CardScanner({ onCardFound }: CardScannerProps) {
 
   return (
     <div className="space-y-8">
-      {/* Series Selection */}
-      <div className="flex justify-center mb-8">
-        <div className="bg-white p-1.5 rounded-2xl border border-slate-200 shadow-sm flex gap-1">
-          <button 
-            onClick={() => setSeries('standard')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${series === 'standard' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-          >
-            <Globe className="h-4 w-4" />
-            Standard Cards
-          </button>
-          <button 
-            onClick={() => setSeries('pocket')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${series === 'pocket' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-          >
-            <Smartphone className="h-4 w-4" />
-            Pocket Assets
-          </button>
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Upload Section */}
         <Card className="border-slate-100 shadow-sm bg-white rounded-3xl overflow-hidden border-2 border-dashed">
@@ -159,6 +175,20 @@ export function CardScanner({ onCardFound }: CardScannerProps) {
             <p className="text-sm text-slate-500 mb-8 max-w-[250px]">
               Upload a screenshot or photo of any Pokémon card to identify it instantly.
             </p>
+            
+            {/* Mock Scanner Toggle */}
+            <div className="flex items-center gap-3 mb-8 p-3.5 bg-slate-50 rounded-2xl border border-slate-100 shadow-inner group/toggle">
+              <input 
+                type="checkbox" 
+                id="mock-mode-toggle"
+                checked={isMockMode}
+                onChange={(e) => setIsMockMode(e.target.checked)}
+                className="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-red-500 accent-red-600 cursor-pointer"
+              />
+              <label htmlFor="mock-mode-toggle" className="text-[10px] font-black text-slate-500 uppercase tracking-widest cursor-pointer select-none group-hover/toggle:text-slate-700 transition-colors">
+                Simulated Mock Scan (Free)
+              </label>
+            </div>
             
             <input 
               type="file" 

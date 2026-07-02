@@ -65,9 +65,10 @@ export default function AuthPage() {
           toast.error("Unexpected response from server. Please try again.");
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Auth Error Object:", error);
-      toast.error(error.message || "Authentication failed");
+      const err = error as Error;
+      toast.error(err.message || "Authentication failed");
     } finally {
       setIsLoading(false);
     }
@@ -83,8 +84,9 @@ export default function AuthPage() {
         },
       });
       if (error) throw error;
-    } catch (error: any) {
-      toast.error(error.message || "Google login failed");
+    } catch (error) {
+      const err = error as Error;
+      toast.error(err.message || "Google login failed");
     } finally {
       setIsLoading(false);
     }

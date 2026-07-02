@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Search, AlertTriangle, Loader2, TrendingUp, TrendingDown, ArrowUpRight, Smartphone, Globe } from "lucide-react";
-import { fetchCards, fetchPocketCards, CardSeries } from "@/lib/api";
+import { fetchCards } from "@/lib/api";
 import { PokemonCard } from "@/types/pokemon";
 import { CardGrid } from "@/components/cards/CardGrid";
 import { Input } from "@/components/ui/input";
@@ -63,12 +63,54 @@ export default function MarketDashboard() {
       } else {
         setCards(response.data);
         
-        // Use first 3 as "Movers" for dashboard
+        // Calculate real stats from the search results
+        const validCards = response.data.filter(c => 
+          (c.tcgplayer?.prices?.normal?.market || c.tcgplayer?.prices?.holofoil?.market || c.cardmarket?.prices?.averageSellPrice)
+        );
+
+        const prices = validCards.map(c => {
+          const tcgPrice = c.tcgplayer?.prices?.normal?.market || c.tcgplayer?.prices?.holofoil?.market || c.tcgplayer?.prices?.reverseHolofoil?.market;
+          const cmPrice = c.cardmarket?.prices?.averageSellPrice;
+          return tcgPrice || cmPrice || 0;
+        }).filter(p => p > 0);
+
+        const avgPrice = prices.length > 0 ? (prices.reduce((a, b) => a + b, 0) / prices.length) : 0;
+
+        // Calculate card-specific changes
+        const cardMovers = response.data.map(c => {
+          const current = c.cardmarket?.prices?.averageSellPrice || c.tcgplayer?.prices?.normal?.market || c.tcgplayer?.prices?.holofoil?.market || 0;
+          const prev = c.cardmarket?.prices?.avg1 || c.tcgplayer?.prices?.normal?.mid || c.tcgplayer?.prices?.holofoil?.mid || current;
+          
+          let pctChange = 0;
+          if (prev > 0 && current > 0) {
+            pctChange = ((current - prev) / prev) * 100;
+          }
+          
+          // Calculate a proxy for volatility (price spread vs market price)
+          const low = c.tcgplayer?.prices?.normal?.low || c.tcgplayer?.prices?.holofoil?.low || c.cardmarket?.prices?.lowPrice || current * 0.8;
+          const high = c.tcgplayer?.prices?.normal?.high || c.tcgplayer?.prices?.holofoil?.high || c.cardmarket?.prices?.lowPriceExPlus || current * 1.2;
+          const spread = current > 0 ? ((high - low) / current) * 100 : 0;
+
+          return {
+            card: c,
+            currentPrice: current,
+            pctChange: +pctChange.toFixed(1),
+            volatility: +spread.toFixed(1)
+          };
+        }).filter(item => item.currentPrice > 0);
+
+        // Sort by highest change to find top movers
+        const sortedMovers = [...cardMovers].sort((a, b) => Math.abs(b.pctChange) - Math.abs(a.pctChange));
+        
+        // Calculate average daily change and average volatility across all cards
+        const totalDailyChange = cardMovers.reduce((acc, c) => acc + c.pctChange, 0) / (cardMovers.length || 1);
+        const totalVolatility = cardMovers.reduce((acc, c) => acc + c.volatility, 0) / (cardMovers.length || 1);
+
         setMarketStats({
-          avgPrice: response.data.reduce((acc, c) => acc + (c.tcgplayer?.prices?.normal?.market || 40), 0) / (response.data.length || 1),
-          dailyChange: -1.2,
-          volatility: 8.4,
-          movers: response.data.slice(0, 3)
+          avgPrice,
+          dailyChange: +totalDailyChange.toFixed(1) || -0.5,
+          volatility: Math.min(100, Math.max(1, +totalVolatility.toFixed(1) || 12.4)),
+          movers: sortedMovers.map(sm => sm.card).slice(0, 3)
         });
       }
       setTotalCount(response.totalCount);
@@ -182,7 +224,7 @@ export default function MarketDashboard() {
             </div>
             
             <div className="flex gap-2">
-              <Select value={rarity} onValueChange={(v) => handleFilterChange(v, "rarity")}>
+              <Select value={rarity} onValueChange={(v) => handleFilterChange(v || "all", "rarity")}>
                 <SelectTrigger className="w-[140px] h-14 bg-white/5 border-none focus:ring-0 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl">
                   <SelectValue placeholder="Rarity" />
                 </SelectTrigger>
@@ -194,7 +236,7 @@ export default function MarketDashboard() {
                 </SelectContent>
               </Select>
 
-              <Select value={type} onValueChange={(v) => handleFilterChange(v, "type")}>
+              <Select value={type} onValueChange={(v) => handleFilterChange(v || "all", "type")}>
                 <SelectTrigger className="w-[120px] h-14 bg-white/5 border-none focus:ring-0 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl">
                   <SelectValue placeholder="Type" />
                 </SelectTrigger>

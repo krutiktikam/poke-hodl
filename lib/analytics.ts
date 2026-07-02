@@ -1,3 +1,5 @@
+import { PokemonCard } from "../types/pokemon";
+
 export interface MarketMetrics {
   sentiment: 'Bullish' | 'Bearish' | 'Neutral' | 'Consolidating';
   volatility: 'Low' | 'Medium' | 'High' | 'Extreme';
@@ -111,7 +113,6 @@ export function calculateFutureProjections(history: { date: string; price: numbe
   const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
   const intercept = (sumY - slope * sumX) / n;
 
-  const lastPrice = recentData[n - 1].price;
   const result: { date: string; price: number; isPrediction: boolean }[] = [];
   
   // Start from today
@@ -143,10 +144,10 @@ export interface SetDominanceData {
 /**
  * Calculates how much a card "dominates" its set in terms of value.
  */
-export function calculateSetDominance(currentCard: any, setCards: any[]): SetDominanceData[] {
+export function calculateSetDominance(currentCard: PokemonCard, setCards: PokemonCard[]): SetDominanceData[] {
   if (!setCards || setCards.length === 0) return [];
 
-  const getPrice = (c: any) => 
+  const getPrice = (c: PokemonCard) => 
     c.tcgplayer?.prices?.holofoil?.market || 
     c.tcgplayer?.prices?.normal?.market || 
     c.tcgplayer?.prices?.reverseHolofoil?.market || 0;

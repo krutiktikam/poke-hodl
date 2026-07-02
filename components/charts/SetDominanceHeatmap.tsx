@@ -7,8 +7,15 @@ interface SetDominanceHeatmapProps {
   data: { name: string; value: number; isCurrent: boolean }[];
 }
 
-const CustomizedContent = (props: any) => {
-  const { x, y, width, height, index, name, isCurrent } = props;
+const CustomizedContent = (props: {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  name?: string;
+  isCurrent?: boolean;
+}) => {
+  const { x = 0, y = 0, width = 0, height = 0, name = "", isCurrent = false } = props;
 
   return (
     <g>
@@ -45,6 +52,7 @@ export function SetDominanceHeatmap({ data }: SetDominanceHeatmapProps) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMounted(true);
   }, []);
 
@@ -66,7 +74,7 @@ export function SetDominanceHeatmap({ data }: SetDominanceHeatmapProps) {
                 return (
                   <div className="bg-white p-3 rounded-xl shadow-xl border border-slate-100">
                     <p className="text-[10px] font-black uppercase text-slate-400 mb-1">{payload[0].payload.name}</p>
-                    <p className="text-sm font-black text-slate-900">${payload[0].value.toFixed(2)}</p>
+                    <p className="text-sm font-black text-slate-900">${Number(payload[0].value || 0).toFixed(2)}</p>
                   </div>
                 );
               }

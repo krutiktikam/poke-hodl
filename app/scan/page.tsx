@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { CardScanner } from "@/components/scanner/CardScanner";
 import { AddToPortfolioModal } from "@/components/cards/AddToPortfolioModal";
 import { PokemonCard } from "@/types/pokemon";
@@ -11,8 +12,23 @@ import { Sparkles, History, ShieldCheck } from "lucide-react";
 
 export default function ScanPage() {
   const router = useRouter();
+  const [scanHistory, setScanHistory] = useState<PokemonCard[]>([]);
+
+  useEffect(() => {
+    const history = JSON.parse(localStorage.getItem("scan-history") || "[]");
+    setScanHistory(history);
+  }, []);
 
   const handleCardFound = (card: PokemonCard) => {
+    // Add to scan history local cache
+    const history = JSON.parse(localStorage.getItem("scan-history") || "[]");
+    const updated = [
+      card,
+      ...history.filter((c: any) => c.id !== card.id)
+    ].slice(0, 10);
+    localStorage.setItem("scan-history", JSON.stringify(updated));
+    setScanHistory(updated);
+
     const isPocket = card.set?.series === "TCG Pocket";
     router.push(`/card/${card.id}${isPocket ? '?series=pocket' : ''}`);
   };
@@ -66,6 +82,51 @@ export default function ScanPage() {
       <div className="max-w-5xl mx-auto">
         <CardScanner onCardFound={handleCardFound} />
       </div>
+
+      {/* Scan History Section */}
+      {scanHistory.length > 0 && (
+        <div className="max-w-5xl mx-auto mt-16 space-y-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3">
+              <History className="h-4 w-4 text-red-600" />
+              Recent Scans
+            </h2>
+            <button 
+              onClick={() => {
+                localStorage.removeItem("scan-history");
+                setScanHistory([]);
+              }}
+              className="text-xs font-bold text-slate-400 hover:text-red-600 transition-colors uppercase tracking-widest animate-pulse"
+            >
+              Clear History
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            {scanHistory.map((card) => (
+              <div 
+                key={card.id} 
+                onClick={() => handleCardFound(card)}
+                className="bg-white border border-slate-100 hover:border-red-100 shadow-sm hover:shadow-md transition-all rounded-[2rem] p-4 cursor-pointer flex flex-col items-center group relative overflow-hidden"
+              >
+                <div className="relative w-full aspect-[2/3] max-w-[120px] mb-4 overflow-hidden rounded-xl">
+                  <Image 
+                    src={card.images.small} 
+                    alt={card.name} 
+                    fill 
+                    className="object-contain p-2 group-hover:scale-105 transition-transform duration-300"
+                    sizes="120px"
+                  />
+                </div>
+                <div className="w-full text-center">
+                  <h4 className="text-sm font-bold text-slate-900 truncate leading-tight mb-1">{card.name}</h4>
+                  <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest truncate">{card.set.name}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

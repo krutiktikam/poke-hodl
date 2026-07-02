@@ -3,28 +3,34 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { PortfolioItem } from "@/types/portfolio";
-import { Navbar } from "@/components/Navbar";
 import { PortfolioCard } from "@/components/cards/PortfolioCard";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PokemonCard } from "@/components/cards/PokemonCard";
+import { Card } from "@/components/ui/card";
 import { 
   Wallet, 
   TrendingUp, 
   PieChart as PieChartIcon, 
-  ArrowUpRight, 
   Plus, 
   LayoutGrid,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  Star
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { PortfolioDistribution } from "@/components/charts/PortfolioDistribution";
 import { fetchCards } from "@/lib/api";
+import { User as SupabaseUser } from "@supabase/supabase-js";
+interface EnrichedPortfolioItem extends PortfolioItem {
+  currentPrice: number;
+  history: { value: number }[];
+}
 
 export default function PortfolioPage() {
-  const [items, setItems] = useState<any[]>([]);
+  const [items, setItems] = useState<EnrichedPortfolioItem[]>([]);
+  const [watchlist, setWatchlist] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<SupabaseUser | null>(null);
 
   useEffect(() => {
     const loadPortfolio = async () => {
@@ -61,7 +67,7 @@ export default function PortfolioPage() {
             ];
 
             return { ...item, currentPrice, history };
-          } catch (e) {
+          } catch {
             return { ...item, currentPrice: item.purchase_price, history: [{value: item.purchase_price}] };
           }
         }));
@@ -75,6 +81,17 @@ export default function PortfolioPage() {
     };
 
     loadPortfolio();
+
+    const loadWatchlist = () => {
+      const stored = JSON.parse(localStorage.getItem("watchlist") || "[]");
+      setWatchlist(stored);
+    };
+    loadWatchlist();
+
+    window.addEventListener("watchlist-updated", loadWatchlist);
+    return () => {
+      window.removeEventListener("watchlist-updated", loadWatchlist);
+    };
   }, []);
 
   const totalValue = items.reduce((sum, item) => sum + (item.currentPrice * item.quantity), 0);
@@ -83,7 +100,7 @@ export default function PortfolioPage() {
   const profitPercentage = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
 
   const distributionData = Object.entries(
-    items.reduce((acc: any, item) => {
+    items.reduce((acc: Record<string, number>, item) => {
       acc[item.set_name] = (acc[item.set_name] || 0) + (item.currentPrice * item.quantity);
       return acc;
     }, {})
@@ -212,6 +229,36 @@ export default function PortfolioPage() {
               </Link>
             </div>
           )}
+
+          {/* Watchlist Section */}
+          <div className="space-y-8 pt-10">
+            <div className="flex justify-between items-center">
+              <h2 className="text-sm font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3">
+                <Star className="h-4 w-4 text-amber-500 fill-amber-500" />
+                The Vault Watchlist
+              </h2>
+              <div className="h-px flex-grow mx-8 bg-slate-100" />
+            </div>
+
+            {watchlist.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {watchlist.map((card) => (
+                  <PokemonCard key={card.id} card={card} />
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white border-2 border-dashed border-slate-100 rounded-[3rem] py-16 text-center">
+                <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Star className="h-6 w-6 text-slate-300" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900 mb-1">Your Watchlist is Empty</h3>
+                <p className="text-slate-500 text-sm max-w-xs mx-auto mb-6">Star cards on the market dashboard to keep an eye on their price trends.</p>
+                <Link href="/">
+                  <Button className="bg-slate-900 text-white rounded-xl px-6 h-10 font-bold text-sm">Browse Market</Button>
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="space-y-8">
